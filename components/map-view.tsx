@@ -1,9 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
 import { createClient } from '@/lib/supabase/client'
+import type L from 'leaflet'
 
 interface Place {
   id: string
@@ -19,14 +18,23 @@ export function MapView({ selectedPlace }: { selectedPlace: string | null }) {
   const map = useRef<L.Map | null>(null)
   const [places, setPlaces] = useState<Place[]>([])
   const markersRef = useRef<L.Marker[]>([])
+  const [leaflet, setLeaflet] = useState<typeof L | null>(null)
+
+  // Load Leaflet dynamically (client-side only)
+  useEffect(() => {
+    import('leaflet').then((L) => {
+      import('leaflet/dist/leaflet.css')
+      setLeaflet(L.default)
+    })
+  }, [])
 
   // Initialize map
   useEffect(() => {
-    if (!mapContainer.current || map.current) return
+    if (!mapContainer.current || map.current || !leaflet) return
 
-    map.current = L.map(mapContainer.current).setView([40.7128, -74.006], 13)
+    map.current = leaflet.map(mapContainer.current).setView([-37.8136, 144.9631], 12)
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    leaflet.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors',
       maxZoom: 19,
       tileSize: 256,
@@ -38,7 +46,7 @@ export function MapView({ selectedPlace }: { selectedPlace: string | null }) {
         map.current = null
       }
     }
-  }, [])
+  }, [leaflet])
 
   // Fetch places from Supabase
   useEffect(() => {
@@ -62,7 +70,7 @@ export function MapView({ selectedPlace }: { selectedPlace: string | null }) {
 
   // Add markers to map
   useEffect(() => {
-    if (!map.current) return
+    if (!map.current || !leaflet) return
 
     // Clear existing markers
     markersRef.current.forEach(marker => marker.remove())
@@ -70,8 +78,8 @@ export function MapView({ selectedPlace }: { selectedPlace: string | null }) {
 
     // Add new markers
     places.forEach(place => {
-      const marker = L.marker([place.latitude, place.longitude], {
-        icon: L.icon({
+      const marker = leaflet.marker([place.latitude, place.longitude], {
+        icon: leaflet.icon({
           iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
           shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
           iconSize: [25, 41],
@@ -81,7 +89,7 @@ export function MapView({ selectedPlace }: { selectedPlace: string | null }) {
         }),
       })
         .bindPopup(`<div class="text-sm"><strong>${place.name}</strong><br/>${place.description}</div>`)
-        .addTo(map.current)
+        .addTo(map.current!)
 
       markersRef.current.push(marker)
 
@@ -90,7 +98,7 @@ export function MapView({ selectedPlace }: { selectedPlace: string | null }) {
         window.dispatchEvent(new CustomEvent('place-selected', { detail: place.id }))
       })
     })
-  }, [places])
+  }, [places, leaflet])
 
   // Highlight selected place
   useEffect(() => {
@@ -110,6 +118,14 @@ export function MapView({ selectedPlace }: { selectedPlace: string | null }) {
       }
     }
   }, [selectedPlace, places])
+
+  if (!leaflet) {
+    return (
+      <div className="w-full h-full bg-muted flex items-center justify-center">
+        <p className="text-muted-foreground">Loading map...</p>
+      </div>
+    )
+  }
 
   return <div ref={mapContainer} className="w-full h-full bg-muted" />
 }
