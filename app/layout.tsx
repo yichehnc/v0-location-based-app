@@ -7,9 +7,10 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
+  title: 'Pause - Discover Quiet Urban Spaces',
+  description: 'Find peaceful green spaces in your city. Discover, save, and explore quiet places to relax and reconnect with nature.',
   generator: 'v0.app',
+  manifest: '/manifest.json',
   icons: {
     icon: [
       {
@@ -27,6 +28,16 @@ export const metadata: Metadata = {
     ],
     apple: '/apple-icon.png',
   },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#f9f5f1' },
+    { media: '(prefers-color-scheme: dark)', color: '#2d3d35' },
+  ],
 }
 
 export default function RootLayout({
