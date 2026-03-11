@@ -1,4 +1,7 @@
--- Seed quiet places data for Melbourne
+-- Delete all existing places to refresh with Melbourne data
+DELETE FROM public.places;
+
+-- Reseed with Melbourne quiet green spaces
 INSERT INTO public.places (name, latitude, longitude, description, address, category, tags) VALUES
   (
     'Birrarung Marr Lower Terrace',
