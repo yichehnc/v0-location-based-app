@@ -6,6 +6,8 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { MapPin, ArrowLeft, ExternalLink, Trash2, Plus } from 'lucide-react'
+import { useAuth } from '@/hooks/use-auth'
+
 interface Place {
   id: string
   name: string
@@ -36,6 +38,7 @@ export function PlaceDetails({
   const [notes, setNotes] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isSaved, setIsSaved] = useState(false)
+  const { user } = useAuth()
 
   useEffect(() => {
     const fetchPlace = async () => {
@@ -49,22 +52,65 @@ export function PlaceDetails({
         .single()
 
       setPlace(placeData)
+
+      // Fetch saved place data if user exists
+      if (user) {
+        const { data: savedData } = await supabase
+          .from('saved_places')
+          .select('*')
+          .eq('place_id', placeId)
+          .eq('user_id', user.id)
+          .single()
+
+        if (savedData) {
+          setSavedPlace(savedData)
+          setNotes(savedData.notes || '')
+          setIsSaved(true)
+        }
+      }
+
       setIsLoading(false)
     }
 
     fetchPlace()
-  }, [placeId])
+  }, [placeId, user])
 
   const savePlace = async () => {
-    if (!place) return
-    setIsSaved(true)
+    if (!user || !place) return
+
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('saved_places')
+      .insert({ user_id: user.id, place_id: place.id, notes })
+      .select()
+
+    if (!error && data) {
+      setSavedPlace(data[0])
+      setIsSaved(true)
+    }
   }
 
   const updateNotes = async () => {
-    // Notes are updated locally in component state
+    if (!user || !savedPlace) return
+
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('saved_places')
+      .update({ notes })
+      .eq('id', savedPlace.id)
+      .select()
+
+    if (!error && data) {
+      setSavedPlace(data[0])
+    }
   }
 
   const unsavePlace = async () => {
+    if (!user || !savedPlace) return
+
+    const supabase = createClient()
+    await supabase.from('saved_places').delete().eq('id', savedPlace.id)
+
     setSavedPlace(null)
     setNotes('')
     setIsSaved(false)

@@ -5,8 +5,9 @@ import { MapView } from '@/components/map-view'
 import { PlacesList } from '@/components/places-list'
 import { PlaceDetails } from '@/components/place-details'
 import { SearchBar } from '@/components/search-bar'
+import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
-import { Menu, MapPin, Heart } from 'lucide-react'
+import { Menu, MapPin, Heart, LogOut } from 'lucide-react'
 import Link from 'next/link'
 
 export default function Home() {
@@ -15,6 +16,7 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterTag, setFilterTag] = useState('')
+  const { user, isLoading } = useAuth()
 
   useEffect(() => {
     // Close sidebar on larger screens
@@ -26,6 +28,26 @@ export default function Home() {
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  if (isLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <MapPin className="w-12 h-12 mx-auto text-primary mb-4 animate-pulse" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="bg-primary/10 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-6">
+            <MapPin className="w-8 h-8 text-primary" />
+          </div>
+          <h1 className="text-3xl font-bold text-foreground mb-4">Pause</h1>
           <p className="text-muted-foreground mb-8">
             Discover peaceful green spaces in your city. Sign in to get started.
           </p>
@@ -40,6 +62,12 @@ export default function Home() {
         </div>
       </div>
     )
+  }
+
+  const handleLogout = async () => {
+    const supabase = await import('@/lib/supabase/client').then(m => m.createClient())
+    await supabase.auth.signOut()
+    window.location.href = '/auth/login'
   }
 
   return (
@@ -80,6 +108,15 @@ export default function Home() {
               <Heart className="w-4 h-4" />
               Saved
             </Link>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleLogout}
+            className="flex-1"
+          >
+            <LogOut className="w-4 h-4" />
+            Logout
           </Button>
         </div>
 
