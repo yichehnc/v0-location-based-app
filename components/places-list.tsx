@@ -14,7 +14,8 @@ interface Place {
   longitude: number
   description: string
   tags: string[]
-  amenities: string[]
+  category: string
+  address: string
 }
 
 interface SavedPlace {
@@ -22,8 +23,15 @@ interface SavedPlace {
   place_id: string
 }
 
-export function PlacesList({ onSelectPlace }: { onSelectPlace: (id: string) => void }) {
+interface PlacesListProps {
+  onSelectPlace: (id: string) => void
+  searchQuery?: string
+  filterTag?: string
+}
+
+export function PlacesList({ onSelectPlace, searchQuery = '', filterTag = '' }: PlacesListProps) {
   const [places, setPlaces] = useState<Place[]>([])
+  const [filteredPlaces, setFilteredPlaces] = useState<Place[]>([])
   const [savedPlaces, setSavedPlaces] = useState<Set<string>>(new Set())
   const [isLoading, setIsLoading] = useState(true)
   const { user } = useAuth()
@@ -55,6 +63,27 @@ export function PlacesList({ onSelectPlace }: { onSelectPlace: (id: string) => v
 
     fetchData()
   }, [user])
+
+  // Filter places based on search and tag
+  useEffect(() => {
+    let filtered = places
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(
+        p =>
+          p.name.toLowerCase().includes(query) ||
+          p.description.toLowerCase().includes(query) ||
+          p.address.toLowerCase().includes(query)
+      )
+    }
+
+    if (filterTag) {
+      filtered = filtered.filter(p => p.tags?.includes(filterTag))
+    }
+
+    setFilteredPlaces(filtered)
+  }, [places, searchQuery, filterTag])
 
   const toggleSave = async (placeId: string) => {
     if (!user) return
@@ -113,7 +142,12 @@ export function PlacesList({ onSelectPlace }: { onSelectPlace: (id: string) => v
       </h2>
 
       <div className="space-y-2 max-h-96 overflow-y-auto">
-        {places.map(place => (
+        {filteredPlaces.length === 0 && (
+          <p className="text-center py-8 text-muted-foreground text-sm">
+            {searchQuery || filterTag ? 'No places found matching your search.' : 'No places available.'}
+          </p>
+        )}
+        {filteredPlaces.map(place => (
           <Card
             key={place.id}
             className="p-3 cursor-pointer hover:border-primary transition-colors bg-card hover:bg-secondary/50"
@@ -127,15 +161,15 @@ export function PlacesList({ onSelectPlace }: { onSelectPlace: (id: string) => v
                 <p className="text-xs text-muted-foreground line-clamp-2">
                   {place.description}
                 </p>
-                {place.amenities && place.amenities.length > 0 && (
+                {place.tags && place.tags.length > 0 && (
                   <div className="flex gap-1 mt-2 flex-wrap">
-                    {place.amenities.slice(0, 3).map((amenity, i) => (
+                    {place.tags.slice(0, 3).map((tag, i) => (
                       <div
                         key={i}
                         className="flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-1 rounded"
                       >
-                        {getAmenityIcon(amenity)}
-                        <span className="capitalize">{amenity}</span>
+                        {getAmenityIcon(tag)}
+                        <span className="capitalize">{tag}</span>
                       </div>
                     ))}
                   </div>

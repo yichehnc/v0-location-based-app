@@ -15,12 +15,14 @@ interface Place {
   longitude: number
   description: string
   tags: string[]
-  amenities: string[]
+  category: string
+  address: string
 }
 
-interface Note {
+interface SavedPlace {
   id: string
-  content: string
+  place_id: string
+  notes: string
   created_at: string
 }
 
@@ -32,9 +34,10 @@ export function PlaceDetails({
   onClose: () => void
 }) {
   const [place, setPlace] = useState<Place | null>(null)
-  const [notes, setNotes] = useState<Note[]>([])
-  const [newNote, setNewNote] = useState('')
+  const [savedPlace, setSavedPlace] = useState<SavedPlace | null>(null)
+  const [notes, setNotes] = useState('')
   const [isLoading, setIsLoading] = useState(true)
+  const [isSaved, setIsSaved] = useState(false)
   const { user } = useAuth()
 
   useEffect(() => {
@@ -50,17 +53,19 @@ export function PlaceDetails({
 
       setPlace(placeData)
 
-      // Fetch notes if user exists
+      // Fetch saved place data if user exists
       if (user) {
-        const { data: notesData } = await supabase
+        const { data: savedData } = await supabase
           .from('saved_places')
-          .select('notes')
+          .select('*')
           .eq('place_id', placeId)
           .eq('user_id', user.id)
           .single()
 
-        if (notesData?.notes) {
-          setNotes(notesData.notes)
+        if (savedData) {
+          setSavedPlace(savedData)
+          setNotes(savedData.notes || '')
+          setIsSaved(true)
         }
       }
 
@@ -70,42 +75,45 @@ export function PlaceDetails({
     fetchPlace()
   }, [placeId, user])
 
-  const addNote = async () => {
-    if (!newNote.trim() || !user) return
-
-    const note = {
-      id: Date.now().toString(),
-      content: newNote,
-      created_at: new Date().toISOString(),
-    }
+  const savePlace = async () => {
+    if (!user || !place) return
 
     const supabase = createClient()
-
-    // Update notes in saved_places
-    const updatedNotes = [...notes, note]
-    await supabase
+    const { data, error } = await supabase
       .from('saved_places')
-      .update({ notes: updatedNotes })
-      .eq('place_id', placeId)
-      .eq('user_id', user.id)
+      .insert({ user_id: user.id, place_id: place.id, notes })
+      .select()
 
-    setNotes(updatedNotes)
-    setNewNote('')
+    if (!error && data) {
+      setSavedPlace(data[0])
+      setIsSaved(true)
+    }
   }
 
-  const deleteNote = async (noteId: string) => {
-    if (!user) return
+  const updateNotes = async () => {
+    if (!user || !savedPlace) return
 
     const supabase = createClient()
-    const updatedNotes = notes.filter(n => n.id !== noteId)
-
-    await supabase
+    const { data, error } = await supabase
       .from('saved_places')
-      .update({ notes: updatedNotes })
-      .eq('place_id', placeId)
-      .eq('user_id', user.id)
+      .update({ notes })
+      .eq('id', savedPlace.id)
+      .select()
 
-    setNotes(updatedNotes)
+    if (!error && data) {
+      setSavedPlace(data[0])
+    }
+  }
+
+  const unsavePlace = async () => {
+    if (!user || !savedPlace) return
+
+    const supabase = createClient()
+    await supabase.from('saved_places').delete().eq('id', savedPlace.id)
+
+    setSavedPlace(null)
+    setNotes('')
+    setIsSaved(false)
   }
 
   const openInGoogleMaps = () => {
@@ -127,79 +135,74 @@ export function PlaceDetails({
 
       <Card className="p-4 bg-card space-y-4">
         <div>
-          <h2 className="text-xl font-bold text-foreground mb-2">{place.name}</h2>
+          <h2 className="text-xl font-bold text-foreground mb-1">{place.name}</h2>
+          <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1">
+            <MapPin className="w-3 h-3" />
+            {place.address}
+          </p>
           <p className="text-sm text-muted-foreground mb-4">{place.description}</p>
 
           <div className="flex flex-wrap gap-2 mb-4">
-            {place.amenities?.map((amenity, i) => (
+            {place.tags?.map((tag, i) => (
               <span
                 key={i}
                 className="text-xs bg-primary/20 text-primary px-2 py-1 rounded capitalize"
               >
-                {amenity}
+                {tag}
               </span>
             ))}
           </div>
 
-          <Button
-            onClick={openInGoogleMaps}
-            className="w-full gap-2 bg-primary hover:bg-primary/90"
-          >
-            <ExternalLink className="w-4 h-4" />
-            Open in Google Maps
-          </Button>
-        </div>
+          <div className="space-y-2">
+            <Button
+              onClick={openInGoogleMaps}
+              className="w-full gap-2 bg-accent hover:bg-accent/90 text-accent-foreground"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Directions in Maps
+            </Button>
 
-        <div className="border-t pt-4">
-          <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-primary" />
-            My Notes
-          </h3>
-
-          <div className="space-y-2 mb-4">
-            {notes.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No notes yet. Add one below!</p>
+            {!isSaved ? (
+              <Button
+                onClick={savePlace}
+                variant="outline"
+                className="w-full"
+              >
+                Save This Place
+              </Button>
             ) : (
-              notes.map(note => (
-                <div
-                  key={note.id}
-                  className="bg-secondary/50 p-3 rounded text-sm text-foreground flex items-start justify-between gap-2"
-                >
-                  <div className="flex-1">
-                    <p>{note.content}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {new Date(note.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => deleteNote(note.id)}
-                    className="h-8 w-8 p-0 flex-shrink-0 text-destructive hover:bg-destructive/10"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))
+              <Button
+                onClick={unsavePlace}
+                variant="destructive"
+                className="w-full"
+              >
+                Remove from Saved
+              </Button>
             )}
           </div>
-
-          <div className="flex gap-2">
-            <Textarea
-              placeholder="Add a note about this place..."
-              value={newNote}
-              onChange={e => setNewNote(e.target.value)}
-              className="resize-none h-20"
-            />
-            <Button
-              onClick={addNote}
-              disabled={!newNote.trim()}
-              className="self-end bg-primary hover:bg-primary/90"
-            >
-              <Plus className="w-4 h-4" />
-            </Button>
-          </div>
         </div>
+
+        {isSaved && (
+          <div className="border-t pt-4">
+            <h3 className="font-semibold text-foreground mb-3">My Notes</h3>
+
+            <div className="mb-4">
+              <Textarea
+                placeholder="Add notes about this place..."
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                className="resize-none h-24 mb-2"
+              />
+              <Button
+                onClick={updateNotes}
+                size="sm"
+                className="bg-primary hover:bg-primary/90"
+              >
+                Save Notes
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   )

@@ -7,12 +7,15 @@ import { PlaceDetails } from '@/components/place-details'
 import { SearchBar } from '@/components/search-bar'
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
-import { Menu, MapPin } from 'lucide-react'
+import { Menu, MapPin, Heart, LogOut } from 'lucide-react'
+import Link from 'next/link'
 
 export default function Home() {
   const [view, setView] = useState<'map' | 'list'>('map')
   const [selectedPlace, setSelectedPlace] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterTag, setFilterTag] = useState('')
   const { user, isLoading } = useAuth()
 
   useEffect(() => {
@@ -61,6 +64,12 @@ export default function Home() {
     )
   }
 
+  const handleLogout = async () => {
+    const supabase = await import('@/lib/supabase/client').then(m => m.createClient())
+    await supabase.auth.signOut()
+    window.location.href = '/auth/login'
+  }
+
   return (
     <div className="h-screen flex flex-col md:flex-row overflow-hidden bg-background">
       {/* Mobile Header */}
@@ -84,16 +93,50 @@ export default function Home() {
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
+        {/* Sidebar Header */}
+        <div className="hidden md:flex items-center justify-between p-4 border-b">
+          <h1 className="text-lg font-bold text-foreground flex items-center gap-2">
+            <MapPin className="w-5 h-5 text-primary" />
+            Pause
+          </h1>
+        </div>
+
+        {/* Sidebar Navigation */}
+        <div className="flex items-center gap-2 p-4 border-b">
+          <Button asChild variant="outline" size="sm" className="flex-1">
+            <Link href="/saved" className="flex items-center gap-2">
+              <Heart className="w-4 h-4" />
+              Saved
+            </Link>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleLogout}
+            className="flex-1"
+          >
+            <LogOut className="w-4 h-4" />
+            Logout
+          </Button>
+        </div>
+
         <div className="flex-1 overflow-y-auto">
           <div className="p-4 space-y-4">
-            <SearchBar />
+            <SearchBar 
+              onSearch={setSearchQuery}
+              onFilterByTag={setFilterTag}
+            />
             {selectedPlace ? (
               <PlaceDetails
                 placeId={selectedPlace}
                 onClose={() => setSelectedPlace(null)}
               />
             ) : (
-              <PlacesList onSelectPlace={setSelectedPlace} />
+              <PlacesList 
+                onSelectPlace={setSelectedPlace}
+                searchQuery={searchQuery}
+                filterTag={filterTag}
+              />
             )}
           </div>
         </div>
