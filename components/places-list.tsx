@@ -5,8 +5,6 @@ import { createClient } from '@/lib/supabase/client'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { MapPin, Leaf, Trees, Droplets, Dog, Heart } from 'lucide-react'
-import { useAuth } from '@/hooks/use-auth'
-
 interface Place {
   id: string
   name: string
@@ -18,11 +16,6 @@ interface Place {
   address: string
 }
 
-interface SavedPlace {
-  id: string
-  place_id: string
-}
-
 interface PlacesListProps {
   onSelectPlace: (id: string) => void
   searchQuery?: string
@@ -32,9 +25,7 @@ interface PlacesListProps {
 export function PlacesList({ onSelectPlace, searchQuery = '', filterTag = '' }: PlacesListProps) {
   const [places, setPlaces] = useState<Place[]>([])
   const [filteredPlaces, setFilteredPlaces] = useState<Place[]>([])
-  const [savedPlaces, setSavedPlaces] = useState<Set<string>>(new Set())
   const [isLoading, setIsLoading] = useState(true)
-  const { user } = useAuth()
 
   useEffect(() => {
     const fetchData = async () => {
@@ -47,22 +38,11 @@ export function PlacesList({ onSelectPlace, searchQuery = '', filterTag = '' }: 
         .order('name')
 
       setPlaces(placesData || [])
-
-      // Fetch saved places for user
-      if (user) {
-        const { data: savedData } = await supabase
-          .from('saved_places')
-          .select('place_id')
-          .eq('user_id', user.id)
-
-        setSavedPlaces(new Set(savedData?.map(s => s.place_id) || []))
-      }
-
       setIsLoading(false)
     }
 
     fetchData()
-  }, [user])
+  }, [])
 
   // Filter places based on search and tag
   useEffect(() => {
